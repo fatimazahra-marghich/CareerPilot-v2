@@ -1,0 +1,25 @@
+# Python
+venv/
+.venv/
+.venv_ws/
+__pycache__/
+*.pyc
+db.sqlite3
+
+# Secrets
+.env
+*.env.local
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Fichiers envoyés par les utilisateurs (CV, photos) : données personnelles
+media/
+
+# Éditeurs / OS
+.idea/
+.vscode/
+.DS_Store
+*.log
