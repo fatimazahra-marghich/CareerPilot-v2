@@ -1,0 +1,5 @@
+# Optional STT dependencies (Whisper local).
+# These downloads can be large (numpy/onnxruntime/etc).
+faster-whisper==1.1.1
+numpy==2.2.6
+
