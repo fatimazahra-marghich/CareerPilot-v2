@@ -81,7 +81,7 @@ export default function Parametres() {
       const token = localStorage.getItem("token");
 
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/dashboard/settings", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/settings`, {
           headers: { Authorization: `Token ${token}` },
         });
 
@@ -129,7 +129,7 @@ export default function Parametres() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/dashboard/settings", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/settings`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -159,7 +159,7 @@ export default function Parametres() {
   const handleExport = async () => {
     const token = localStorage.getItem("token");
 
-    const res = await fetch("http://127.0.0.1:8000/api/dashboard/export-data", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/export-data`, {
       headers: { Authorization: `Token ${token}` },
     });
 
@@ -180,7 +180,7 @@ export default function Parametres() {
 
     const token = localStorage.getItem("token");
 
-    const res = await fetch("http://127.0.0.1:8000/api/dashboard/delete-account", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/delete-account`, {
       method: "DELETE",
       headers: { Authorization: `Token ${token}` },
     });
