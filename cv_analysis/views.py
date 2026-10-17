@@ -42,6 +42,12 @@ def upload_and_analyze_cv(request):
     if uploaded_file.size > 5 * 1024 * 1024:
         return Response({"detail": "Fichier trop grand. Taille maximale : 5 MB."}, status=status.HTTP_400_BAD_REQUEST)
 
+    if not os.getenv("GROQ_API_KEY"):
+        return Response(
+            {"detail": "La clé GROQ_API_KEY est introuvable dans le .env. Ajoutez-la puis redémarrez le backend."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
     upload_dir = os.path.join(settings.MEDIA_ROOT, "cvs", str(request.user.id))
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -105,13 +111,13 @@ def upload_and_analyze_cv(request):
         }
 
     cv = CV.objects.create(
-    user=request.user,
-    file_name=uploaded_file.name,
-    file_path=file_path,
-    photo_path=photo_path,
-    extracted_text=extracted_text,
-    ats_score=analysis_data.get("ats_score", 0),
-)
+        user=request.user,
+        file_name=uploaded_file.name,
+        file_path=file_path,
+        photo_path=photo_path,
+        extracted_text=extracted_text,
+        ats_score=analysis_data.get("ats_score", 0),
+    )
     result = CVAnalysisResult.objects.create(
         cv=cv,
         status="analysed",

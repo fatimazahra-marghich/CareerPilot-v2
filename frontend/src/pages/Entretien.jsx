@@ -12,6 +12,7 @@ export default function Entretien() {
   const [report, setReport] = useState(null);
   const [reportError, setReportError] = useState(false);
   const [voiceError, setVoiceError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const hasCv = !!localStorage.getItem("cv_id");
   
   const socket = useRef(null);
@@ -138,6 +139,8 @@ export default function Entretien() {
   const startInterview = () => {
     const cvId = localStorage.getItem("cv_id");
     if (!cvId) return;
+    setErrorMsg("");
+    finishedRef.current = false;
     setStarted(true);
     socket.current = new WebSocket(`${import.meta.env.VITE_API_URL.replace(/^http/, "ws")}/ws/interview/${cvId}/`);
     socket.current.onopen = () => {
@@ -145,6 +148,15 @@ export default function Entretien() {
     };
     socket.current.onmessage = async (e) => {
       const data = JSON.parse(e.data);
+
+      // Erreur envoyée par le backend (clé manquante, CV introuvable...)
+      if (data.type === "error") {
+        finishedRef.current = true;   // empêche le micro de redémarrer
+        try { recognition.current.stop(); } catch(err) {}
+        setErrorMsg(data.message);
+        setStarted(false);
+        return;
+      }
 
       // Rapport final envoyé par le backend
       if (data.type === "report") {
@@ -283,6 +295,11 @@ export default function Entretien() {
               <p style={{ color: theme.muted, maxWidth: 400, marginBottom: 32, fontSize: 15 }}>
                 Alex va analyser votre CV et simuler un entretien d'embauche réaliste. Branchez votre micro !
               </p>
+              {errorMsg && (
+                <p style={{ color: "#991b1b", background: "#fee2e2", padding: "10px 16px", borderRadius: 12, fontSize: 13, marginBottom: 16, maxWidth: 420 }}>
+                  {errorMsg}
+                </p>
+              )}
               {!hasCv && (
                 <p style={{ color: "#92400e", background: "#fef3c7", padding: "10px 16px", borderRadius: 12, fontSize: 13, marginBottom: 16 }}>
                   Analysez d'abord un CV avant de démarrer l'entretien.

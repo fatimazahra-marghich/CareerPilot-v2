@@ -25,26 +25,32 @@ FALLBACK_QUESTIONS = [
 class InterviewConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.cv_id = self.scope['url_route']['kwargs']['cv_id']
+        await self.accept()
+
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            await self.send_error("La clé GROQ_API_KEY est introuvable dans le .env. Ajoutez-la puis redémarrez le backend.")
+            return
+
         cv_obj = await self.get_cv(self.cv_id)
+        if not cv_obj or not cv_obj.extracted_text:
+            await self.send_error("CV introuvable ou vide. Analysez d'abord un CV.")
+            return
 
-        if cv_obj and cv_obj.extracted_text:
-            await self.accept()
-            self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-            self.extracted_text = cv_obj.extracted_text
-            self.question_count = 1
-            self.history = []  # historique de la conversation (gardé pendant toute la connexion)
-            self.finished = False  # passe à True quand l'entretien est terminé
+        self.client = Groq(api_key=api_key)
+        self.extracted_text = cv_obj.extracted_text
+        self.question_count = 1
+        self.history = []  # historique de la conversation (gardé pendant toute la connexion)
+        self.finished = False  # passe à True quand l'entretien est terminé
 
-            # Message d'accueil personnalisé selon le CV
-            instruction = (
-                "Salue le candidat avec enthousiasme et professionnalisme. "
-                "Pose une première question brève pour briser la glace sur son parcours "
-                "ou une techno clé du CV."
-            )
-            response_text = await self.ask_ai(instruction)
-            await self.send_speech(response_text)
-        else:
-            await self.close()
+        # Message d'accueil personnalisé selon le CV
+        instruction = (
+            "Salue le candidat avec enthousiasme et professionnalisme. "
+            "Pose une première question brève pour briser la glace sur son parcours "
+            "ou une techno clé du CV."
+        )
+        response_text = await self.ask_ai(instruction)
+        await self.send_speech(response_text)
 
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -88,6 +94,11 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         if is_final:
             await self.send_report()
+
+    async def send_error(self, message):
+        """Envoie un message d'erreur lisible au frontend, puis ferme la connexion."""
+        await self.send(text_data=json.dumps({'type': 'error', 'message': message}))
+        await self.close()
 
     async def send_report(self):
         """Génère le rapport final (score + analyse) à partir de toute la conversation."""
