@@ -12,6 +12,7 @@ export default function Entretien() {
   const [report, setReport] = useState(null);
   const [reportError, setReportError] = useState(false);
   const [voiceError, setVoiceError] = useState(false);
+  const hasCv = !!localStorage.getItem("cv_id");
   
   const socket = useRef(null);
   const recognition = useRef(null);
@@ -135,8 +136,10 @@ export default function Entretien() {
   };
 
   const startInterview = () => {
+    const cvId = localStorage.getItem("cv_id");
+    if (!cvId) return;
     setStarted(true);
-    socket.current = new WebSocket(`ws://localhost:8000/ws/interview/${localStorage.getItem("cv_id") || "18"}/`);
+    socket.current = new WebSocket(`ws://localhost:8000/ws/interview/${cvId}/`);
     socket.current.onopen = () => {
       try { recognition.current.start(); } catch(e) {}
     };
@@ -280,7 +283,19 @@ export default function Entretien() {
               <p style={{ color: theme.muted, maxWidth: 400, marginBottom: 32, fontSize: 15 }}>
                 Alex va analyser votre CV et simuler un entretien d'embauche réaliste. Branchez votre micro !
               </p>
-              <button onClick={startInterview} className="btn-start">Démarrer l'immersion</button>
+              {!hasCv && (
+                <p style={{ color: "#92400e", background: "#fef3c7", padding: "10px 16px", borderRadius: 12, fontSize: 13, marginBottom: 16 }}>
+                  Analysez d'abord un CV avant de démarrer l'entretien.
+                </p>
+              )}
+              <button
+                onClick={startInterview}
+                disabled={!hasCv}
+                className="btn-start"
+                style={!hasCv ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              >
+                Démarrer l'immersion
+              </button>
             </div>
           ) : (
             <>

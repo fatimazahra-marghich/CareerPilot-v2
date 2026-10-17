@@ -14,9 +14,10 @@ export default function JobMatching() {
   const [jobDescription, setJobDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
+  const hasCv = !!localStorage.getItem("cv_id");
 
   const handleMatch = async () => {
-    if (!jobDescription) return;
+    if (!jobDescription || !hasCv) return;
     setLoading(true);
 
     try {
@@ -27,8 +28,7 @@ export default function JobMatching() {
             "Content-Type": "application/json" 
         },
         body: JSON.stringify({
-          // Récupère l'ID du CV stocké ou utilise "18" par défaut
-          cv_id: localStorage.getItem("cv_id") || "18", 
+          cv_id: localStorage.getItem("cv_id"),
           job_description: jobDescription
         }),
       });
@@ -63,6 +63,12 @@ export default function JobMatching() {
             Analysez la compatibilité entre votre CV et une offre d'emploi grâce à la similarité sémantique de l'IA.
           </p>
         </div>
+
+        {!hasCv && (
+          <div style={{ maxWidth: 1100, margin: "0 auto 20px", padding: "12px 16px", borderRadius: 12, fontSize: 13, background: "#fef3c7", color: "#92400e" }}>
+            Analysez d'abord un CV (page « Upload ») avant de lancer le matching.
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 24, maxWidth: 1100, margin: "0 auto" }}>
           
@@ -100,18 +106,18 @@ export default function JobMatching() {
 
             <button 
               onClick={handleMatch}
-              disabled={loading || !jobDescription}
+              disabled={loading || !jobDescription || !hasCv}
               style={{
                 width: "100%",
                 marginTop: 20,
-                background: loading || !jobDescription ? theme.border : theme.gradient,
+                background: loading || !jobDescription || !hasCv ? theme.border : theme.gradient,
                 border: "none",
-                color: loading || !jobDescription ? theme.muted : "#fff",
+                color: loading || !jobDescription || !hasCv ? theme.muted : "#fff",
                 fontSize: 15,
                 fontWeight: 700,
                 padding: "14px",
                 borderRadius: 14,
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: loading || !hasCv ? "not-allowed" : "pointer",
                 fontFamily: "'Syne',sans-serif",
                 transition: "all 0.2s"
               }}
