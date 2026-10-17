@@ -6,13 +6,23 @@ from groq import Groq
 from cv_analysis.models import CV
 from .models import JobMatch
 
+# Le modèle se change dans .env (GROQ_MODEL) sans toucher au code.
+# llama-3.3-70b-versatile a été retiré par Groq le 16 août 2026.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
+
 @api_view(['POST'])
 def analyze_job_match(request):
     try:
         data = json.loads(request.body)
-        # On essaie de récupérer l'ID du CV, sinon 18
-        cv_id = data.get('cv_id') or '18'
+        cv_id = data.get('cv_id')
         job_description = data.get('job_description')
+
+        # 0. Vérifier les données envoyées par le frontend
+        if not cv_id:
+            return JsonResponse({'error': 'cv_id manquant dans la requête.'}, status=400)
+        if not job_description:
+            return JsonResponse({'error': "job_description manquante dans la requête."}, status=400)
 
         # 1. Vérifier la clé API
         api_key = os.getenv("GROQ_API_KEY")
@@ -23,11 +33,11 @@ def analyze_job_match(request):
         try:
             cv_obj = CV.objects.get(id=cv_id)
         except CV.DoesNotExist:
-            return JsonResponse({'error': f'Le CV avec l\'ID {cv_id} n\'existe pas dans la base.'}, status=404)
+            return JsonResponse({'error': f"Le CV avec l'ID {cv_id} n'existe pas dans la base."}, status=404)
 
         # 3. Appel Groq
         client = Groq(api_key=api_key)
-        
+
         prompt = f"""
         Analyse ce CV par rapport à l'offre d'emploi.
         CV : {cv_obj.extracted_text}
@@ -43,7 +53,7 @@ def analyze_job_match(request):
         """
 
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
@@ -63,5 +73,5 @@ def analyze_job_match(request):
         return JsonResponse(result_ia)
 
     except Exception as e:
-        print(f"DEBUG ERROR: {str(e)}") # Vérifie ton terminal Django
+        print(f"DEBUG ERROR: {str(e)}")  # Vérifie ton terminal Django
         return JsonResponse({'error': str(e)}, status=500)

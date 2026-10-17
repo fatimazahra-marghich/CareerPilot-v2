@@ -26,7 +26,7 @@ def generate_ai_response(cv_text, history, user_input):
     messages.append({"role": "user", "content": user_input})
 
     completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=messages,
         temperature=0.1, 
         max_tokens=200

@@ -8,15 +8,33 @@ export default function Entretien() {
   const [isListening, setIsListening] = useState(false);
   const [started, setStarted] = useState(false);
   const [interim, setInterim] = useState("");
+  const [finished, setFinished] = useState(false);
+  const [report, setReport] = useState(null);
+  const [reportError, setReportError] = useState(false);
+  const [voiceError, setVoiceError] = useState(false);
   
   const socket = useRef(null);
   const recognition = useRef(null);
   const chatEndRef = useRef(null);
   const isSpeaking = useRef(false);
+  const finishedRef = useRef(false);
+  const pendingReport = useRef(null);
+  const answerBuffer = useRef("");     // ce que le candidat a dit pendant sa réponse
+  const silenceTimer = useRef(null);   // minuteur : réponse envoyée après un silence
+  const SILENCE_MS = 3000;             // 3 secondes de silence = réponse terminée
+
+  // Envoie la réponse complète à Alex (appelée après le silence ou par le bouton)
+  const flushAnswer = () => {
+    clearTimeout(silenceTimer.current);
+    const text = answerBuffer.current.trim();
+    answerBuffer.current = "";
+    setInterim("");
+    if (text) sendToAlex(text);
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, interim]);
+  }, [messages, interim, report]);
 
   useEffect(() => {
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -30,7 +48,7 @@ export default function Entretien() {
     recognition.current.onstart = () => setIsListening(true);
     recognition.current.onend = () => {
       setIsListening(false);
-      if (started && !isSpeaking.current) {
+      if (started && !isSpeaking.current && !finishedRef.current) {
         try { recognition.current.start(); } catch(e) {}
       }
     };
@@ -39,19 +57,82 @@ export default function Entretien() {
       if (isSpeaking.current) return;
       let interimText = "";
       for (let i = e.resultIndex; i < e.results.length; ++i) {
+        const part = e.results[i][0].transcript;
         if (e.results[i].isFinal) {
-          const final = e.results[i][0].transcript;
-          if (final.trim()) {
-            sendToAlex(final);
-            setInterim("");
-          }
+          if (part.trim()) answerBuffer.current += part.trim() + " ";
         } else {
-          interimText += e.results[i][0].transcript;
+          interimText += part;
         }
       }
-      setInterim(interimText);
+
+      const shown = (answerBuffer.current + interimText).trim();
+      setInterim(shown);
+
+      // Tant que le candidat parle, on repousse l'envoi.
+      clearTimeout(silenceTimer.current);
+      if (shown) silenceTimer.current = setTimeout(flushAnswer, SILENCE_MS);
     };
   }, [started]);
+
+  // Appelée quand Alex a fini de parler (voix serveur ou voix du navigateur)
+  const finishSpeaking = () => {
+    isSpeaking.current = false;
+    if (pendingReport.current) {
+      const r = pendingReport.current;
+      pendingReport.current = null;
+      if (r.report) setReport(r.report);
+      else setReportError(true);
+    }
+    if (!finishedRef.current) {
+      try { recognition.current.start(); } catch(e) {}
+    }
+  };
+
+  // Voix de secours : synthèse vocale du navigateur (si la voix du serveur échoue)
+  const speakWithBrowser = (fullText) => {
+    const id = Date.now() + Math.random();
+    const words = fullText.split(" ");
+    setMessages(prev => [...prev, { id, role: "ai", text: "" }]);
+
+    const showFull = () => setMessages(prev => prev.map(m => m.id === id ? { ...m, text: fullText } : m));
+
+    if (!window.speechSynthesis) {
+      showFull();
+      return;
+    }
+
+    isSpeaking.current = true;
+    clearTimeout(silenceTimer.current);
+    answerBuffer.current = "";
+    setInterim("");
+    try { recognition.current.stop(); } catch(e) {}
+
+    const utterance = new SpeechSynthesisUtterance(fullText);
+    utterance.lang = "fr-FR";
+    const frVoice = window.speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith("fr"));
+    if (frVoice) utterance.voice = frVoice;
+
+    let timer = null;
+    utterance.onstart = () => {
+      let n = 0;
+      timer = setInterval(() => {
+        n += 1;
+        const shown = words.slice(0, n).join(" ");
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, text: shown } : m));
+        if (n >= words.length) clearInterval(timer);
+      }, 330);
+    };
+    const done = () => {
+      clearInterval(timer);
+      showFull();
+      finishSpeaking();
+    };
+    utterance.onend = done;
+    utterance.onerror = done;
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
 
   const startInterview = () => {
     setStarted(true);
@@ -61,22 +142,89 @@ export default function Entretien() {
     };
     socket.current.onmessage = async (e) => {
       const data = JSON.parse(e.data);
-      setMessages(prev => [...prev, { role: "ai", text: data.text }]);
-      if (data.audio) {
-        isSpeaking.current = true;
+
+      // Rapport final envoyé par le backend
+      if (data.type === "report") {
+        finishedRef.current = true;
+        setFinished(true);
+        if (isSpeaking.current) {
+          pendingReport.current = data;   // affiché quand Alex a fini de parler
+        } else if (data.report) {
+          setReport(data.report);
+        } else {
+          setReportError(true);
+        }
+        return;
+      }
+
+      // Dernier message d'Alex (conclusion) : le rapport arrive juste après
+      if (data.end_of_turn === false) {
+        finishedRef.current = true;
+        setFinished(true);
         try { recognition.current.stop(); } catch(e) {}
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+      }
+
+      const fullText = data.text || "";
+
+      // Pas d'audio : on affiche le texte directement.
+      if (!data.audio) {
+        setVoiceError(true);
+        speakWithBrowser(fullText);
+        return;
+      }
+
+      // Audio : le texte apparaît mot par mot, au rythme de la voix.
+      const id = Date.now() + Math.random();
+      const words = fullText.split(" ");
+      setMessages(prev => [...prev, { id, role: "ai", text: "" }]);
+
+      isSpeaking.current = true;
+      clearTimeout(silenceTimer.current);
+      answerBuffer.current = "";
+      setInterim("");
+      try { recognition.current.stop(); } catch(e) {}
+
+      const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+      let timer = null;
+
+      const showFull = () => {
+        clearInterval(timer);
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, text: fullText } : m));
+      };
+
+      const startReveal = () => {
+        const seconds = isFinite(audio.duration) && audio.duration > 0
+          ? audio.duration
+          : words.length * 0.35;
+        const step = Math.max(60, (seconds * 1000 * 0.9) / words.length);
+        let n = 0;
+        timer = setInterval(() => {
+          n += 1;
+          const shown = words.slice(0, n).join(" ");
+          setMessages(prev => prev.map(m => m.id === id ? { ...m, text: shown } : m));
+          if (n >= words.length) clearInterval(timer);
+        }, step);
+      };
+
+      audio.onplaying = startReveal;
+      audio.onended = () => {
+        showFull();
+        finishSpeaking();
+      };
+
+      try {
         await audio.play();
-        audio.onended = () => {
-          isSpeaking.current = false;
-          try { recognition.current.start(); } catch(e) {}
-        };
+      } catch (err) {
+        // Lecture impossible (navigateur) : on affiche le texte quand même.
+        console.error("Lecture audio impossible :", err);
+        showFull();
+        finishSpeaking();
       }
     };
   };
 
   const sendToAlex = (text) => {
-    if (socket.current?.readyState === WebSocket.OPEN) {
+    if (!finishedRef.current && socket.current?.readyState === WebSocket.OPEN) {
       socket.current.send(JSON.stringify({ text }));
       setMessages(prev => [...prev, { role: "user", text }]);
     }
@@ -100,11 +248,17 @@ export default function Entretien() {
             <div style={{ display: "flex", alignItems: "center", gap: 12, background: theme.card, padding: "8px 16px", borderRadius: 12, border: `1px solid ${theme.border}` }}>
               <div className={isListening ? "pulse-green" : "pulse-red"} />
               <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5 }}>
-                {isListening ? "ALEX ÉCOUTE..." : "ALEX RÉPOND..."}
+                {finished ? "ENTRETIEN TERMINÉ" : isListening ? "ALEX ÉCOUTE..." : "ALEX RÉPOND..."}
               </span>
             </div>
           )}
         </div>
+
+        {voiceError && (
+          <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 12, fontSize: 13, background: "#fef3c7", color: "#92400e" }}>
+            🔇 La voix du serveur est indisponible : Alex utilise la voix de secours de ton navigateur.
+          </div>
+        )}
 
         {/* Chat Area */}
         <div style={{ 
@@ -163,10 +317,70 @@ export default function Entretien() {
                   </div>
                 </div>
               )}
+              {finished && !report && !reportError && (
+                <div style={{ textAlign: "center", color: theme.muted, fontSize: 14, margin: "16px 0" }}>
+                  Génération de votre rapport...
+                </div>
+              )}
+
+              {reportError && (
+                <div style={{ textAlign: "center", color: theme.muted, fontSize: 14, margin: "16px 0" }}>
+                  Le rapport n'a pas pu être généré. Réessayez l'entretien plus tard.
+                </div>
+              )}
+
+              {report && (
+                <div style={{ border: `1px solid ${theme.border}`, borderRadius: 20, padding: 24, marginTop: 8, background: theme.bg }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 16 }}>
+                    <div style={{
+                      width: 84, height: 84, borderRadius: "50%", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 28, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#fff",
+                      background: report.score >= 70 ? "#10b981" : report.score >= 40 ? "#f59e0b" : "#ef4444"
+                    }}>
+                      {report.score}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18 }}>
+                        Rapport d'entretien
+                      </div>
+                      <div style={{ fontSize: 13, color: theme.muted }}>Score sur 100</div>
+                    </div>
+                  </div>
+
+                  {report.resume && (
+                    <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 16px" }}>{report.resume}</p>
+                  )}
+
+                  {[
+                    ["Points forts", report.points_forts],
+                    ["Points à améliorer", report.points_a_ameliorer],
+                    ["Conseils", report.conseils],
+                  ].map(([title, items]) =>
+                    Array.isArray(items) && items.length > 0 ? (
+                      <div key={title} style={{ marginBottom: 14 }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{title}</div>
+                        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.6 }}>
+                          {items.map((it, k) => <li key={k}>{it}</li>)}
+                        </ul>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              )}
+
               <div ref={chatEndRef} />
             </>
           )}
         </div>
+
+        {started && !finished && interim && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+            <button onClick={flushAnswer} className="btn-start" style={{ padding: "10px 24px", fontSize: 14 }}>
+              J'ai terminé ma réponse
+            </button>
+          </div>
+        )}
 
         {/* Footer Voice Animation */}
         {started && (
