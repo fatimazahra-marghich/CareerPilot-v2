@@ -22,7 +22,7 @@ export default function JobMatching() {
 
     try {
       // Appel vers ton API Django
-      const response = await fetch("http://localhost:8000/api/matching/analyze/", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/matching/analyze/`, {
         method: "POST",
         headers: { 
             "Content-Type": "application/json" 

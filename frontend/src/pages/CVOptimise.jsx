@@ -35,7 +35,7 @@ export default function CVOptimise() {
       }
 
       try {
-        const response = await fetch("http://localhost:8000/api/cv/latest-optimized-cv", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/latest-optimized-cv`, {
           method: "GET",
           headers: {
             Authorization: `Token ${token}`,
@@ -307,7 +307,7 @@ const photoAdvice =
     const token = localStorage.getItem("token");
 
     const response = await fetch(
-      `http://localhost:8000/api/cv/optimized-cv/${data.optimized_id}/pdf`,
+      `${import.meta.env.VITE_API_URL}/api/cv/optimized-cv/${data.optimized_id}/pdf`,
       {
         method: "GET",
         headers: {

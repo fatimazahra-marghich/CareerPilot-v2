@@ -78,7 +78,7 @@ export default function Profil() {
       try {
         const headers = { Authorization: `Token ${token}` };
 
-        const profileRes = await fetch("http://localhost:8000/api/dashboard/profile", {
+        const profileRes = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/profile`, {
           method: "GET",
           headers,
         });
@@ -98,14 +98,14 @@ export default function Profil() {
 
         localStorage.setItem("user", JSON.stringify(profileData));
 
-        const historyRes = await fetch("http://localhost:8000/api/cv/history", { headers });
+        const historyRes = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/history`, { headers });
         const historyData = await historyRes.json();
 
         if (Array.isArray(historyData)) {
           setHistory(historyData);
         }
 
-        const latestRes = await fetch("http://localhost:8000/api/cv/latest-analysis", { headers });
+        const latestRes = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/latest-analysis`, { headers });
 
         if (latestRes.ok) {
           const latestData = await latestRes.json();
@@ -143,7 +143,7 @@ export default function Profil() {
     setSuccess("");
 
     try {
-      const response = await fetch("http://localhost:8000/api/dashboard/profile", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

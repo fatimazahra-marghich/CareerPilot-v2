@@ -139,7 +139,7 @@ export default function Entretien() {
     const cvId = localStorage.getItem("cv_id");
     if (!cvId) return;
     setStarted(true);
-    socket.current = new WebSocket(`ws://localhost:8000/ws/interview/${cvId}/`);
+    socket.current = new WebSocket(`${import.meta.env.VITE_API_URL.replace(/^http/, "ws")}/ws/interview/${cvId}/`);
     socket.current.onopen = () => {
       try { recognition.current.start(); } catch(e) {}
     };

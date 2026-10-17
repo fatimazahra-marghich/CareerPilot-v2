@@ -131,7 +131,7 @@ export default function AnalysesCV() {
         let response;
 
         if (analysisId) {
-          response = await fetch(`http://localhost:8000/api/cv/analysis/${analysisId}`, {
+          response = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/analysis/${analysisId}`, {
             method: "GET",
             headers,
           });
@@ -144,7 +144,7 @@ export default function AnalysesCV() {
           }
         }
 
-        response = await fetch("http://localhost:8000/api/cv/latest-analysis", {
+        response = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/latest-analysis`, {
           method: "GET",
           headers,
         });

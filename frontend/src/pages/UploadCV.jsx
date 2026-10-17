@@ -62,7 +62,7 @@ export default function UploadCV() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("http://localhost:8000/api/cv/upload-analyze", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/upload-analyze`, {
         method: "POST",
         headers: {
           Authorization: `Token ${token}`,
