@@ -138,13 +138,18 @@ def upload_and_analyze_cv(request):
         improvement=ai_optimization.get("improvement", 0),
     )
 
+    # Si une des deux IA a échoué, on le signale au frontend (le CV est quand même enregistré).
+    ai_partial = bool(ai_analysis.get("error") or ai_optimization.get("error"))
+
     return Response({
-        "message": "CV analysé et optimisé avec succès",
+        "message": "CV analysé et optimisé avec succès" if not ai_partial
+                   else "CV enregistré, mais l'analyse IA est incomplète",
         "analysis_id": result.id,
         "optimized_id": optimized_cv.id,
         "cv_id": cv.id,
         "filename": cv.file_name,
         "atsScore": analysis_data.get("ats_score", 0),
+        "aiPartial": ai_partial,
         "aiAnalysis": ai_analysis,
         "aiOptimization": ai_optimization,
     }, status=status.HTTP_201_CREATED)

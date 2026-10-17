@@ -11,6 +11,7 @@ export default function UploadCV() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [warning, setWarning] = useState("");
   const inputRef = useRef();
 
   const handleFile = (f) => {
@@ -54,6 +55,7 @@ export default function UploadCV() {
 
     setLoading(true);
     setApiError("");
+    setWarning("");
     setProgress(15);
 
     try {
@@ -78,10 +80,18 @@ export default function UploadCV() {
       setDone(true);
 
       localStorage.setItem("latest_analysis_id", String(data.analysis_id));
+      // Utilisé par le matching et l'entretien vocal (plus de cv_id en dur)
+      localStorage.setItem("cv_id", String(data.cv_id));
+
+      if (data.aiPartial) {
+        setWarning(
+          "Votre CV est enregistré, mais l'analyse IA détaillée est indisponible pour le moment. Seuls les scores de base sont affichés."
+        );
+      }
 
       setTimeout(() => {
         window.location.href = "/analyses";
-      }, 1000);
+      }, data.aiPartial ? 4000 : 1000);
     } catch (err) {
       setApiError(err.message || "Erreur réseau.");
       setLoading(false);
@@ -236,6 +246,22 @@ export default function UploadCV() {
               }}
             >
               ❌ {apiError}
+            </div>
+          )}
+
+          {warning && (
+            <div
+              style={{
+                marginBottom: 18,
+                background: "#FEF3C7",
+                border: "1.5px solid #FCD34D",
+                borderRadius: 12,
+                padding: "12px 16px",
+                color: "#92400E",
+                fontSize: 13,
+              }}
+            >
+              ⚠️ {warning}
             </div>
           )}
 

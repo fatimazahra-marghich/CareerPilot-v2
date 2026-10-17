@@ -4,11 +4,10 @@ import json
 import unicodedata
 import io
 import zipfile
-from dotenv import load_dotenv # Ajoutez ceci
-load_dotenv() # Et ceci avant de lire HF_TOKEN
+from dotenv import load_dotenv
+load_dotenv()
 
-HF_TOKEN = os.getenv("HF_TOKEN")
-
+from groq import Groq
 from pypdf import PdfReader
 from docx import Document
 
@@ -23,25 +22,25 @@ try:
 except Exception:
     Image = None
 
-try:
-    from huggingface_hub import InferenceClient
-except Exception:
-    InferenceClient = None
-
 
 # =========================
-# HUGGING FACE CLIENT
+# CLIENT IA (GROQ)
 # =========================
+# Remplace Hugging Face (erreur 402 : plus de crédits).
+# Le modèle se change dans .env (GROQ_MODEL) sans toucher au code.
 
-HF_TOKEN = os.getenv("HF_TOKEN")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
-hf_client = InferenceClient(
-    provider="novita",
-    api_key=HF_TOKEN
-) if (HF_TOKEN and InferenceClient) else None
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 
-HF_MODEL = "deepseek-ai/DeepSeek-V4-Flash"
+def _groq_extra_params():
+    # gpt-oss "réfléchit" avant de répondre : on limite pour aller plus vite
+    # et ne pas consommer le budget de tokens en réflexion.
+    if "gpt-oss" in GROQ_MODEL:
+        return {"extra_body": {"reasoning_effort": "low"}}
+    return {}
 
 
 # =========================
@@ -75,19 +74,20 @@ def extract_text_from_file(file_path):
         return extract_text_from_docx(file_path)
 
     return ""
-def call_huggingface_interview(prompt, max_tokens=500, temperature=0.7):
-    if hf_client is None:
-        raise Exception("HF_TOKEN absent.")
-    
+def call_groq_interview(prompt, max_tokens=500, temperature=0.7):
+    if groq_client is None:
+        raise Exception("GROQ_API_KEY absente du .env.")
+
     # On n'utilise pas le format JSON strict ici pour permettre une discussion naturelle
-    response = hf_client.chat.completions.create(
-        model=HF_MODEL,
+    response = groq_client.chat.completions.create(
+        model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": "Tu es un recruteur. Analyse le CV fourni dans le prompt et pose des questions précises au candidat."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=max_tokens,
         temperature=temperature,
+        **_groq_extra_params(),
     )
     return response.choices[0].message.content
 
@@ -542,12 +542,12 @@ def analyse_cv_text(text):
 
 
 # =========================
-# OUTILS JSON HUGGING FACE
+# OUTILS JSON (IA)
 # =========================
 
 def clean_ai_json_response(content):
     if not content:
-        raise Exception("Réponse Hugging Face vide")
+        raise Exception("Réponse IA vide")
 
     content = content.strip()
     content = content.replace("```json", "").replace("```", "").strip()
@@ -556,23 +556,23 @@ def clean_ai_json_response(content):
     end = content.rfind("}")
 
     if start == -1 or end == -1:
-        raise Exception(f"Aucun JSON trouvé dans la réponse HF: {content[:500]}")
+        raise Exception(f"Aucun JSON trouvé dans la réponse IA: {content[:500]}")
 
     content = content[start:end + 1]
 
     try:
         return json.loads(content)
     except json.JSONDecodeError as e:
-        print("🔥 JSON HF BRUT:", content[:1000])
+        print("🔥 JSON IA BRUT:", content[:1000])
         raise e
 
 
-def call_huggingface_chat(prompt, max_tokens=1800, temperature=0.3):
-    if hf_client is None:
-        raise Exception("HF_TOKEN absent. Configurez votre token Hugging Face.")
+def call_ai_chat(prompt, max_tokens=1800, temperature=0.3):
+    if groq_client is None:
+        raise Exception("GROQ_API_KEY absente. Ajoutez-la dans le fichier .env.")
 
-    response = hf_client.chat.completions.create(
-        model=HF_MODEL,
+    response = groq_client.chat.completions.create(
+        model=GROQ_MODEL,
         messages=[
             {
                 "role": "system",
@@ -585,15 +585,17 @@ def call_huggingface_chat(prompt, max_tokens=1800, temperature=0.3):
         ],
         max_tokens=max_tokens,
         temperature=temperature,
+        response_format={"type": "json_object"},
+        **_groq_extra_params(),
     )
 
     content = response.choices[0].message.content
-    print("🔥 REPONSE HF:", content[:1000])
+    print("🔥 REPONSE IA:", (content or "")[:1000])
     return content
 
 
 # =========================
-# ANALYSE IA HUGGING FACE
+# ANALYSE IA
 # =========================
 
 def analyse_cv_with_ai(cv_text, classic_analysis=None):
@@ -626,7 +628,7 @@ Retourne uniquement ce JSON valide:
 }}
 """
 
-    content = call_huggingface_chat(
+    content = call_ai_chat(
         prompt=prompt,
         max_tokens=5000,
         temperature=0.2,
@@ -636,7 +638,7 @@ Retourne uniquement ce JSON valide:
 
 
 # =========================
-# OPTIMISATION IA HUGGING FACE
+# OPTIMISATION IA
 # =========================
 
 def optimize_cv_with_ai(cv_text, classic_analysis=None):
@@ -709,7 +711,7 @@ Retourne exactement ce JSON:
 """
 
     try:
-        content = call_huggingface_chat(
+        content = call_ai_chat(
             prompt=prompt,
             max_tokens=3500,
             temperature=0.2,
