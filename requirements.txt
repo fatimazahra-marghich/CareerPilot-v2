@@ -21,7 +21,7 @@ groq==0.18.0
 openai==1.97.0
 
 # --- Audio & Synthèse Vocale (TTS) ---
-edge-tts==6.1.15
+edge-tts==7.3.1
 
 # --- Utilitaires ---
 python-dotenv==1.0.1
