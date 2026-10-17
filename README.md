@@ -10,7 +10,7 @@ matching CV / offre d'emploi, et simulation d'entretien vocal avec IA.
 | Frontend | React, Vite | `frontend/` |
 | Backend API | Django, Django REST Framework, Channels (WebSocket) | `users/`, `cv_analysis/`, `matching/`, `dashboard/`, `Interview/` |
 | Base de données | PostgreSQL | configurée dans `backend_config/settings.py` |
-| IA | Groq (Llama 3.3), Hugging Face, Whisper (voix), Edge-TTS | `Interview/`, `cv_analysis/`, `matching/` |
+   | IA | Groq (openai/gpt-oss-120b), Edge-TTS (voix), reconnaissance vocale du navigateur | `Interview/`, `cv_analysis/`, `matching/` |
 
 ## Lancer le projet
 

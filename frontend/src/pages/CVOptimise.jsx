@@ -238,8 +238,7 @@ const photoAdvice =
                 ))
               ) : (
                 <div style={{ background: "#FEF2F2", borderRadius: 14, padding: 18, border: "1.5px solid #FCA5A5", color: "#DC2626", fontSize: 13 }}>
-                  Aucune section optimisée reçue. Vérifiez la réponse Hugging Face dans le backend.
-                </div>
+                     Aucune section optimisée reçue. Réessayez dans un instant ou vérifiez la clé GROQ_API_KEY.                </div>
               )}
 
               {optimizedExperiences.map((exp, i) => (
