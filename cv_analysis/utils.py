@@ -646,8 +646,6 @@ def optimize_cv_with_ai(cv_text, classic_analysis=None):
         classic_analysis = analyse_cv_text(cv_text)
 
     original_score = int(classic_analysis.get("ats_score", 0))
-    optimized_score = max(75, min(95, original_score + 40))
-    improvement = optimized_score - original_score
 
     technical_skills = classic_analysis.get("technical_skills", [])
     soft_skills = classic_analysis.get("soft_skills", [])
@@ -709,6 +707,7 @@ Retourne exactement ce JSON:
   "certifications": ["Certification 1"]
 }}
 """
+    ai_error = None
 
     try:
         content = call_ai_chat(
@@ -721,6 +720,7 @@ Retourne exactement ce JSON:
 
     except Exception as e:
         print("🔥 ERREUR JSON CV OPTIMISÉ:", str(e))
+        ai_error = str(e)
 
         cv_json = {
             "name": "Nom non précisé",
@@ -756,7 +756,15 @@ EXPÉRIENCE
 
 FORMATION
 {json.dumps(cv_json.get("education", []), ensure_ascii=False)}
-"""
+""" 
+    # Score réel : on réanalyse le CV optimisé avec la même méthode que l'original.
+    if ai_error:
+           # L'IA a échoué : pas de vraie optimisation, le score ne change pas.
+        optimized_score = original_score
+    else:
+        optimized_score = int(analyse_cv_text(final_cv_text).get("ats_score", 0))
+
+    improvement = optimized_score - original_score
 
     return {
         "score_original": original_score,
@@ -785,5 +793,6 @@ FORMATION
         "removed_redundancies": [],
         "corrected_errors": [],
         "main_improvements": [],
-        "final_cv_text": final_cv_text
+        "final_cv_text": final_cv_text,
+        "error": ai_error,
     }
