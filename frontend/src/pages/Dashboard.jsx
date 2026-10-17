@@ -297,9 +297,81 @@ function RecentTable({ history, theme }) {
 }
 
 export default function Dashboard() {
+
+  function InterviewReports({ interviews, theme }) {
+  const recent = interviews.slice(0, 5);
+
+  return (
+    <div
+      style={{
+        background: theme.card,
+        border: `1px solid ${theme.border}`,
+        borderRadius: 18,
+        padding: 26,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        marginTop: 26,
+      }}
+    >
+      <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: theme.text, marginBottom: 20 }}>
+        Entretiens passés
+      </h3>
+
+      {recent.length === 0 ? (
+        <div style={{ color: theme.muted, fontSize: 14 }}>
+          Aucun entretien pour le moment. Lancez un entretien avec Alex.
+        </div>
+      ) : (
+        recent.map((it) => {
+          const color = it.score >= 70 ? "#10b981" : it.score >= 40 ? "#f59e0b" : "#ef4444";
+          return (
+            <div
+              key={it.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "14px 0",
+                borderBottom: `1px solid ${theme.border}`,
+              }}
+            >
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: "50%",
+                  background: color,
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "'Syne',sans-serif",
+                  fontWeight: 800,
+                  fontSize: 18,
+                  flexShrink: 0,
+                }}
+              >
+                {it.score}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
+                  {it.filename} · {new Date(it.created_at).toLocaleDateString("fr-FR")}
+                </div>
+                <div style={{ fontSize: 13, color: theme.muted, marginTop: 4 }}>
+                  {it.report?.resume || "Rapport sans résumé."}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
   const { theme } = useAppSettings();
 
   const [history, setHistory] = useState([]);
+  const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState("");
   const username = getUserName();
@@ -315,7 +387,7 @@ export default function Dashboard() {
       }
 
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/cv/history", {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/cv/history`, {
           method: "GET",
           headers: {
             Authorization: `Token ${token}`,
@@ -329,6 +401,18 @@ export default function Dashboard() {
         }
 
         setHistory(Array.isArray(result) ? result : []);
+       // Rapports d'entretien : si ça échoue, le dashboard reste utilisable.
+        try {
+          const intRes = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/interviews`, {
+            headers: { Authorization: `Token ${token}` },
+          });
+          if (intRes.ok) {
+            const intData = await intRes.json();
+            setInterviews(Array.isArray(intData) ? intData : []);
+          }
+        } catch {
+          setInterviews([]);
+        }
       } catch (err) {
         setApiError(err.message || "Erreur réseau.");
       } finally {
@@ -402,6 +486,7 @@ export default function Dashboard() {
         </div>
 
         <RecentTable history={history} theme={theme} />
+        <InterviewReports interviews={interviews} theme={theme} />
       </main>
 
       <style>{`
