@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import UserProfile
+from Interview.models import InterviewReport
 
 
 @api_view(["GET", "PUT"])
@@ -108,3 +109,26 @@ def delete_user_account(request):
     user = request.user
     user.delete()
     return Response({"message": "Compte supprimé avec succès"})
+
+
+@api_view(["GET"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def interview_reports(request):
+    reports = (
+        InterviewReport.objects.select_related("cv")
+        .filter(cv__user=request.user)
+        .order_by("-created_at")
+    )
+
+    data = []
+    for r in reports:
+        data.append({
+            "id": r.id,
+            "filename": r.cv.file_name,
+            "score": r.score,
+            "report": r.report,
+            "created_at": r.created_at.isoformat(),
+        })
+
+    return Response(data, status=status.HTTP_200_OK)

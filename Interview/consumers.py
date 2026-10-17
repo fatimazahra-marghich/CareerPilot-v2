@@ -7,6 +7,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from groq import Groq
 from cv_analysis.models import CV
+from Interview.models import InterviewReport
 
 # Le modèle se change dans .env (GROQ_MODEL) sans toucher au code.
 # llama-3.3-70b-versatile a été retiré par Groq le 16 août 2026.
@@ -39,6 +40,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         self.client = Groq(api_key=api_key)
         self.extracted_text = cv_obj.extracted_text
+        self.cv_obj = cv_obj
         self.question_count = 1
         self.history = []  # historique de la conversation (gardé pendant toute la connexion)
         self.finished = False  # passe à True quand l'entretien est terminé
@@ -136,6 +138,10 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             )
             report = json.loads(completion.choices[0].message.content)
             report["score"] = max(0, min(100, int(report.get("score", 0))))
+            try:
+                await self.save_report_db(report)
+            except Exception as e:
+                print(f"Erreur sauvegarde rapport: {e}")
             await self.send(text_data=json.dumps({'type': 'report', 'report': report}))
         except Exception as e:
             print(f"Erreur rapport: {e}")
@@ -213,6 +219,14 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             print(f"Erreur TTS: {e}")
             # Envoi du texte seul si l'audio échoue
             await self.send(text_data=json.dumps({'text': text, 'audio': None, 'end_of_turn': not is_final}))
+
+    @database_sync_to_async
+    def save_report_db(self, report):
+        InterviewReport.objects.create(
+            cv=self.cv_obj,
+            score=report["score"],
+            report=report,
+        )
 
     @database_sync_to_async
     def get_cv(self, cv_id):
