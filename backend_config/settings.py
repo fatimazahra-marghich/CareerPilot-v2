@@ -1,6 +1,6 @@
 from pathlib import Path
 import os
-from dotenv import load_dotenv  # Import indispensable
+from dotenv import load_dotenv
 
 # Charger le fichier .env dès le début
 load_dotenv()
@@ -18,7 +18,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-insecure-key-change-me')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "backend"]
 
 # Application definition
 INSTALLED_APPS = [
@@ -35,11 +35,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Tes applications locales
+    # Applications locales
     'users',
     'cv_analysis',
     'matching',
-    'Interview', 
+    'Interview',
     'dashboard',
 ]
 
@@ -119,6 +119,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
+    "http://localhost:80",
+    "http://localhost",
 ]
 
 REST_FRAMEWORK = {

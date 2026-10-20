@@ -1,17 +1,19 @@
 import os
 import json
 from django.http import JsonResponse
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 from groq import Groq
 from cv_analysis.models import CV
 from .models import JobMatch
 
-# Le modèle se change dans .env (GROQ_MODEL) sans toucher au code.
-# llama-3.3-70b-versatile a été retiré par Groq le 16 août 2026.
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def analyze_job_match(request):
     try:
         data = json.loads(request.body)
@@ -29,11 +31,11 @@ def analyze_job_match(request):
         if not api_key:
             return JsonResponse({'error': 'La clé GROQ_API_KEY est introuvable dans le .env'}, status=500)
 
-        # 2. Récupérer le CV
+        # 2. Récupérer le CV en vérifiant qu'il appartient à l'utilisateur connecté
         try:
-            cv_obj = CV.objects.get(id=cv_id)
+            cv_obj = CV.objects.get(id=cv_id, user=request.user)
         except CV.DoesNotExist:
-            return JsonResponse({'error': f"Le CV avec l'ID {cv_id} n'existe pas dans la base."}, status=404)
+            return JsonResponse({'error': "CV introuvable."}, status=404)
 
         # 3. Appel Groq
         client = Groq(api_key=api_key)
@@ -73,5 +75,5 @@ def analyze_job_match(request):
         return JsonResponse(result_ia)
 
     except Exception as e:
-        print(f"DEBUG ERROR: {str(e)}")  # Vérifie ton terminal Django
+        print(f"DEBUG ERROR: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
