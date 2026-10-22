@@ -1,9 +1,15 @@
 # CareerPilot
 
-Plateforme de préparation à l'emploi : analyse et optimisation de CV, matching CV / offre
-et simulation d'entretien vocal.
+Plateforme intelligente de préparation à l'emploi : analyse et optimisation de CV (score ATS),
+matching CV / offre d'emploi, et simulation d'entretien vocal avec IA.
 
-Ce document décrit l'équipe, les tests, la conteneurisation Docker et le pipeline CI/CD GitLab.
+## Fonctionnalités
+
+- Inscription / connexion
+- Upload et analyse de CV, CV optimisé (export PDF)
+- Matching CV / offre
+- Entretien vocal en temps réel (WebSocket)
+- Dashboard, profil, paramètres
 
 ## Stack
 
@@ -12,6 +18,7 @@ Ce document décrit l'équipe, les tests, la conteneurisation Docker et le pipel
 | Frontend | React, Vite | `frontend/` |
 | Backend | Django, Django REST Framework, Channels, Daphne | `users/`, `cv_analysis/`, `matching/`, `dashboard/`, `Interview/` |
 | Base de données | PostgreSQL 15 | `backend_config/settings.py` |
+| IA | Groq (openai/gpt-oss-120b), Edge-TTS (voix), reconnaissance vocale du navigateur | `Interview/`, `cv_analysis/`, `matching/` |
 | Conteneurisation | Docker, Docker Compose | `Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml` |
 | CI/CD | GitLab CI/CD | `.gitlab-ci.yml` |
 
@@ -39,8 +46,29 @@ cp .env.example .env
 | `GROQ_API_KEY`, `GROQ_MODEL` | Accès au service d'IA |
 
 Le frontend lit `VITE_API_URL` (voir `frontend/.env.example`).
+Les clés API vont uniquement dans `.env`.
 
-## Docker
+## Lancer le projet
+
+### Sans Docker
+
+Prérequis : Python 3.11+, Node.js 18+, PostgreSQL.
+
+```bash
+# Backend
+python -m venv venv
+source venv/bin/activate    # Windows : venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver  # http://127.0.0.1:8000
+
+# Frontend (autre terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+### Avec Docker
 
 Prérequis : Docker et Docker Compose.
 
@@ -59,8 +87,6 @@ docker compose up --build
 
 Les migrations sont appliquées au démarrage du backend. Les volumes `postgres_data` et
 `media_data` conservent la base de données et les CV envoyés.
-
-Commandes utiles :
 
 ```bash
 docker compose down            # arrêter les services
@@ -105,7 +131,7 @@ avec les tags `$CI_COMMIT_SHORT_SHA` et `latest`.
 
 ### Variables CI/CD
 
-Variables à définir dans **Settings > CI/CD > Variables** pour le job `deploy` :
+À définir dans **Settings > CI/CD > Variables** pour le job `deploy` :
 
 | Variable | Description |
 |---|---|
