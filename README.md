@@ -148,4 +148,5 @@ directement dans `.gitlab-ci.yml`.
 
 1. Développer sur une branche et pousser sur `test` : le pipeline lance les tests et les builds.
 2. Ouvrir une merge request de `test` vers `main` : le pipeline se relance.
-3. Après fusion sur `main`, lancer manuellement le job `deploy`.
+3. Après fusion sur `main`, lancer manuellement le job `deploy`
+
