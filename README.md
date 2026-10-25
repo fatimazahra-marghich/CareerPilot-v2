@@ -112,7 +112,8 @@ cd frontend
 npm run lint
 npm run build
 ```
-
+## CI/CD
+Le pipeline GitLab CI/CD (tests, build des images Docker, déploiement) est défini dans `.gitlab-ci.yml`. Il s'exécute sur le dépôt GitLab privé de l'équipe.
 ## CI/CD GitLab
 
 Le pipeline est défini dans `.gitlab-ci.yml`. Il s'exécute sur les merge requests et sur
